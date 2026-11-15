@@ -1,2 +1,209 @@
-# kartika-shield
-kartika shield
+# Kartika Shield
+
+## Kartika Shield, Cognitive Warfare Intelligence & Early Warning System (v2.0)
+Versi ini menambahkan analisis Cognitive Warfare ke aplikasi lama tanpa AI:
+- **Cognitive Threat Analysis** (`js/00a-kognitif-teks.js`): 8 kategori teknik manipulasi, bukti kutipan, metode dan keterbatasan pada tiap hasil (jendela Analisis).
+- **Narrative & Influence Mapping** (`js/00b-kognitif-narasi.js`): klaster narasi, kronologi, indikator koordinasi berlapis, graf akun-narasi-tagar (jendela Buzzer).
+- **Cognitive Threat Early Warning** (`js/00c-kognitif-dini.js`): skor komposit 6 komponen dengan gerbang level AWAS/SIAGA/WASPADA/AMAN (jendela Buzzer dan Peta Dini).
+- **Cognitive Situation Report**: bagian 2a pada Laporan Komando (HTML, teks, JSON, CSV, cetak).
+Dokumen: `INSTALLATION.md`, `USAGE.md`, `ARCHITECTURE.md`, `API.md`, `TEST_REPORT.md`, `CHANGELOG.md`, `AUDIT_BASELINE.md`. Data contoh bersifat **SIMULASI** (`eval/`).
+Folder `AUTO IG` (bot komentar/like Instagram dengan anti-deteksi) **tidak disertakan**: bertentangan dengan misi (lihat CHANGELOG.md).
+
+Dasbor anti disinformasi (Cognitive Domain) berbasis nilai Bhinneka Tunggal Ika, dengan kolektor data opsional. Analisis mencakup indikator risiko, arah/sasaran narasi, pemetaan DISARM, klaster buzzer, peringatan dini wilayah, dan laporan komando.
+
+Penilaian adalah **indikator pola bahasa dan perilaku, bukan putusan benar atau salah**. Hanya cek fakta resmi yang dapat menyatakan sebuah klaim hoaks.
+
+## Struktur
+```
+index.html          kerangka halaman
+assets/             gaya (style.css) dan logo
+js/                 kode aplikasi, satu berkas per fitur (dimuat berurutan, angka di awal nama menentukan urutan)
+data/               data statis (batas provinsi, lambang, peta dunia)
+collector/          kolektor Bluesky/RSS + bot pencarian otomatis (Node.js >= 22, tanpa dependensi)
+tools/build.js      menggabungkan semuanya menjadi satu berkas
+dist/               hasil build, kartika-shield.html (berkas tunggal mandiri)
+vendor/             d3 dan topojson-client lokal (ISC), tanpa CDN
+js/00a-00c          mesin kognitif bersama (teks, narasi, peringatan dini)
+tests/ eval/        uji otomatis, dataset (SIMULASI), hasil uji
+docs/               diagram arsitektur, evaluasi, laporan audit sebelumnya
+```
+
+## Menjalankan dasbor
+- **Langsung**: buka `index.html` (atau `dist/kartika-shield.html`) dengan klik dua kali.
+- **GitHub Pages / Vercel**: unggah repositori apa adanya, `index.html` di akar.
+- **Membuat ulang berkas tunggal** setelah mengubah kode: `node tools/build.js`
+
+Tidak ada langkah instal. Pustaka d3 dan topojson sudah disertakan di `vendor/` (tanpa CDN), sehingga aplikasi berjalan offline.
+
+Tampilan utama adalah **Peta Dunia Live**. Jendela Analisis, Buzzer, Feed, Peta Dini, **Laporan Komando**, Dashboard, dan Data dibuka dari dock di bagian atas peta.
+
+## Mengisi data
+| Cara | Tempat |
+|---|---|
+| Aliran Bluesky langsung dari peramban | Feed, tombol Sambungkan |
+| Kolektor di komputer sendiri (Bluesky + RSS/Google News, ada deteksi koordinasi dan berita lintas penerbit) | Feed, Hubungkan kolektor |
+| Bot pencarian otomatis (Bluesky Search API, kata kunci dan jeda bisa diubah) | Feed, Hubungkan kolektor |
+| Tempel teks | Analisis |
+| Impor CSV unggahan | Buzzer |
+| Isi manual per provinsi | Peta Dini |
+| Susun ringkasan tindak lanjut | Laporan Komando |
+| Data sintetis untuk demo | tombol Mode: Simulasi (diberi penanda tegas) |
+
+## Menguji mutu penilaian dengan data nyata
+1. Hubungkan Feed (langsung atau lewat kolektor) dan biarkan beberapa jam.
+2. Pada tiap hasil di daftar Feed, klik **tepat** atau **salah tandai**. Ringkasan presisi berjalan muncul di atas daftar (targetkan minimal 30 tinjauan).
+3. Unduh **hasil feed (CSV)** dan **tinjauan (CSV)** untuk laporan. Tinjauan hanya tersimpan di peramban Anda.
+
+Kolektor bisa menyimpan hasilnya sendiri: `LOG_CSV=hasil.csv node collector/server.js` (akun tetap berupa hash, ada kolom `penilaian_manual` untuk diisi).
+
+## Kolektor
+```
+cd collector
+node server.js
+```
+Pengaturan lewat variabel lingkungan: `PORT` (8787), `HOST` (127.0.0.1), `MIN_RISK` (45), `MAX_CLIENTS` (20), `ALLOW_ORIGIN` (asal tambahan untuk CORS), `LOG_CSV`, `JETSTREAM`, `RSS_URLS`. Pengaturan bot pengambil data dijelaskan terpisah di bawah.
+
+Bila `RSS_URLS` tidak diisi, kolektor memakai daftar bawaan Google News Indonesia, Antara, CNN Indonesia, Detik, Kumparan, dan Tempo. Isi `RSS_URLS` dengan daftar URL dipisahkan koma untuk mengganti daftar itu; isi `off` (`RSS_URLS=off`) untuk mematikan RSS. Kolektor menandai judul yang mirip dari minimal dua penerbit berbeda dalam tiga jam sebagai **Agregasi Berita/viral** dan mengirimkannya ke Feed. RSS hanya diambil kolektor (bukan peramban) agar tidak terkena batas CORS.
+
+Bila dasbor dibuka dari GitHub Pages: `ALLOW_ORIGIN=https://USERNAME.github.io node server.js`, lalu isi `http://localhost:8787` di tab Feed. Kolektor tidak bisa berjalan di GitHub Pages atau Vercel karena harus tersambung terus-menerus.
+
+## Bot pencarian otomatis (Feed Bluesky)
+Kolektor menjalankan pencarian publik Bluesky secara berkala, menilai hasilnya, lalu mengirim yang melewati ambang risiko ke Feed. Tidak perlu App Password atau kredensial lain. Di tab Feed, hubungkan kolektor, isi kata kunci dan jeda, lalu klik **Cari sekarang** atau **Aktifkan otomatis**.
+
+Bawaan: kata kunci `hoaks,disinformasi,provokasi,pemilu,konflik sosial`, jeda 10 menit, jendela 24 jam, maksimal 30 hasil per putaran, dan ambang `MIN_RISK` 45. Ubah lewat `BOT_KEYWORDS`, `BOT_INTERVAL_MIN`, `BOT_LOOKBACK_HOURS`, `BOT_LIMIT`; setel `BOT_AUTO=0` untuk mematikan pencarian otomatis saat kolektor mulai. Hasil dengan skor di bawah ambang tetap dihitung di statistik tetapi tidak dikirim ke Feed. Duplikat dicegah selama kolektor berjalan.
+
+## Bot pengambil data Buzzer (Bluesky)
+Mengambil unggahan publik, jumlah follower dan following, serta umur akun lewat API resmi Bluesky, lalu menulisnya dalam format tab Deteksi Buzzer (`akun,umur_akun_hari,follower,following,jam,teks|KODE`).
+
+1. Di Bluesky buat **App Password** khusus (Pengaturan, Privasi dan keamanan, Kata sandi aplikasi). Jangan pakai kata sandi utama dan jangan dibagikan ke siapa pun.
+2. Di PowerShell:
+```
+cd collector
+$env:BSKY_HANDLE="namaanda.bsky.social"
+$env:BSKY_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+node ambil-buzzer.js --kata "pemilu,#indonesiadijual" --jam 3
+```
+3. Hasilnya `buzzer.csv`. Di dasbor, buka Buzzer lalu klik **Telusuri** (atau tempel isinya), kemudian **Deteksi**.
+
+Pilihan: `--jam` (maks 24), `--maks`, `--keluar`, `--bahasa`, `--ulang 15` (ulangi tiap 15 menit dan hanya menambah unggahan baru), `--tampilkan-akun`. Lihat `node ambil-buzzer.js --bantuan`.
+
+Catatan: nama akun dianonimkan secara bawaan (pola angka di akhir nama tetap dipertahankan karena itu sinyal bot yang sah). Jam ditulis dalam WIB. Analisis hanya valid dalam jendela maksimum 24 jam. Bot hanya membaca dan mematuhi batas laju server. Platform lain tidak punya akses publik resmi yang gratis (lihat catatan platform di bawah).
+
+## Bot pengambil data YouTube
+Mengambil komentar publik lewat YouTube Data API v3 resmi (kunci API gratis, kuota 10.000 unit per hari). Format keluaran sama dengan tab Deteksi Buzzer. Jumlah following tidak tersedia dari YouTube sehingga diisi 0.
+
+1. Di Google Cloud Console buat proyek, aktifkan **YouTube Data API v3**, lalu buat **API key**. Jangan dibagikan.
+2. Di PowerShell:
+```
+cd collector
+$env:YT_API_KEY="AIza..."
+node ambil-youtube.js --video "https://youtu.be/ID_VIDEO" --jam 24
+node ambil-youtube.js --kata "pemilu,vaksin" --video-maks 5
+```
+3. Hasilnya `youtube.csv`. Muat lewat tombol **Telusuri** di tab Buzzer, lalu **Deteksi**.
+
+Pencarian video memakai 100 unit per kata kunci, sedangkan mengambil komentar dari video yang sudah diketahui hampir tidak memakai kuota. Lihat `node ambil-youtube.js --bantuan`.
+
+## Ekspor
+- Peta Peringatan Dini: unduh PNG, cetak atau simpan PDF.
+- Peta Live: unduh PNG.
+- Feed: CSV hasil dan CSV tinjauan.
+- Laporan Komando: cetak/PDF, JSON, CSV, salin ringkasan; tindak lanjut tersimpan di `bs_cmd` dan ikut cadangan Pusat Data.
+
+## Arah narasi dan DISARM
+- Analisis menampilkan perkiraan **arah narasi** (menyerang, mendukung, kontradiktif, netral) dan **sasaran** (pemerintah, kelompok agama/etnis, tokoh, ekonomi, kelompok rentan, dan lain-lain). Ini pola bahasa, bukan penilaian niat.
+- Indikator dipetakan ke **DISARM Red Framework** (taktik/teknik) di `js/06-disarm.js`, misalnya tagar kampanye, clickbait, konspirasi, serbuan akun, akun baru, dan deepfake. Pemetaan berbasis aturan, bukan atribusi resmi.
+- Rujukan dan lisensi DISARM ada di `THIRD_PARTY.md`.
+
+## Privasi dan batasan
+- Kolektor tidak menulis ke disk kecuali `LOG_CSV` diisi. Akun ditampilkan sebagai hash 8 karakter.
+- Cakupan sumber hanya Bluesky dan RSS/Google News. Platform lain tidak punya aliran publik atau berbayar.
+- Skor berbasis aturan bahasa bisa salah tandai dan mudah dihindari. Selalu tinjau manual dan rujuk cek fakta (tautan tersedia di hasil Analisis).
+- Tidak ada komponen AI. Semua analisis berbasis aturan, statistik, kemiripan teks, dan analisis graf yang transparan dan dapat diuji (lihat ARCHITECTURE.md).
+
+Atribusi data dan lambang: lihat `THIRD_PARTY.md`.
+
+## Catatan platform
+| Platform | Bisa diambil secara sah? |
+|---|---|
+| Bluesky | Ya, `ambil-buzzer.js` (App Password) |
+| YouTube | Ya, `ambil-youtube.js` (kunci API gratis) |
+| Facebook | Hanya Halaman milik Anda, `ambil-facebook.js` (token Halaman) |
+| TikTok | Hanya lewat Research API untuk peneliti yang disetujui |
+| Facebook | Tidak ada pencarian publik. Meta Content Library hanya untuk peneliti yang disetujui |
+| Instagram | Hanya akun bisnis sendiri, pencarian tagar sangat terbatas |
+| X | API berbayar |
+| WhatsApp | Terenkripsi dan privat, tidak ada data publik |
+Menirukan login akun pribadi untuk mengambil data dari platform di atas melanggar ketentuan layanan dan berisiko memblokir akun.
+
+## Pusat Data (penyimpanan dan kualitas data)
+
+Jendela **Data** di dock mengelola semua data aplikasi (riwayat analisis, laporan peta, tinjauan feed, laporan komando).
+
+- **Cadangan JSON**: unduh dan pulihkan seluruh data. Berkas memuat checksum, jadi berkas rusak ditolak. Saat memulihkan ada pratinjau (jumlah di berkas, baris rusak yang dibuang, hasil gabung) dan pilihan *Gabungkan* atau *Timpa*. Keadaan sebelumnya disimpan dulu dan bisa diurungkan.
+- **Salinan otomatis**: data disalin ke IndexedDB tiap 10 detik bila berubah. Bila data lokal hilang (misalnya riwayat peramban dibersihkan) muncul tawaran memulihkan. Aplikasi juga meminta *penyimpanan permanen* ke peramban. Salinan ini tetap di peramban yang sama, jadi unduh cadangan berkas secara berkala. Aplikasi mengingatkan bila cadangan lebih dari 7 hari.
+- **Validasi impor**: tiap record dicek bentuk dan rentangnya. Record dengan bentuk atau rentang tidak wajar dibuang.
+- **Deteksi duplikat**: record identik dihitung dan dapat dihapus.
+- **Validasi CSV Buzzer**: baris dengan kolom kurang, angka bukan bulat, jam bukan HH:MM, atau teks kosong ditolak dengan nomor baris dan alasan. Duplikat persis dibuang, kode provinsi tak dikenal dikosongkan, maksimum 5000 baris dan 5 MB. Tersedia tombol *Pakai data bersih* dan *Unduh baris ditolak*.
+
+Uji internal: tombol **Validasi model** di jendela Buzzer (18 akun sintetis berlabel, sirkular). Pengujian menyeluruh ada di TEST_REPORT.md. Lihat `docs/EVALUASI.md` untuk metode dan keterbatasannya.
+
+## Bot Facebook (Halaman yang Anda kelola)
+
+Facebook tidak punya API pencarian postingan publik (CrowdTangle sudah ditutup), jadi bot ini hanya membaca komentar di **Halaman yang Anda kelola**. Facebook juga tidak membuka umur akun, follower, dan following pengomentar, sehingga kolom itu diisi nilai netral (365, 100, 100) dan deteksi bersandar pada kemiripan teks, waktu serempak, dan pola nama.
+
+1. Buat aplikasi di developers.facebook.com (jenis Business), lalu buka Graph API Explorer.
+2. Pilih Halaman Anda, minta izin `pages_show_list`, `pages_read_engagement`, `pages_read_user_content`, lalu buat **Page access token**.
+3. Jalankan (token lewat variabel lingkungan, jangan di-commit):
+```
+$env:FB_PAGE_TOKEN="EAA..."
+$env:FB_PAGE_ID="ID_HALAMAN"
+node collector/ambil-facebook.js --jam 24
+```
+Token dikirim lewat header, tidak pernah dicetak, dan tautan paginasi yang memuat token tidak diikuti. Hasil `facebook.csv` diunggah di tab Deteksi Buzzer. Untuk izin tertentu Meta bisa meminta App Review bila aplikasi dipakai pihak lain, tetapi untuk Halaman milik sendiri dengan akun admin/pengembang aplikasi biasanya tidak perlu.
+
+
+## Peta Peringatan Dini berbasis berita publik
+
+Peta Dini versi ini mengambil artikel dari RSS publik melalui `collector/server.js`, bukan dari array contoh yang ditanam di frontend. Daftar bawaan meliputi [ANTARA RSS](https://www.antaranews.com/rss/terkini.xml), [CNN Indonesia Nasional RSS](https://www.cnnindonesia.com/nasional/rss), [detikcom RSS](https://news.detik.com/berita/rss), [CNBC Indonesia RSS](https://www.cnbcindonesia.com/news/rss), dan Google News RSS pencarian Indonesia. Collector memeriksa feed saat start dan setiap 5 menit serta menyimpan metadata artikel secara lokal ke `collector/data/news-articles.json` (dapat diubah dengan `NEWS_STORE`). Endpoint lokal `GET /news?limit=300` mengembalikan judul, URL artikel, penerbit/feed, tanggal publikasi (jika tersedia), waktu pengumpulan, indikator teks, dan kode provinsi jika nama wilayah terdeteksi secara eksplisit.
+
+Jalankan Collector dengan `npm run collector`, lalu buka dashboard dan pilih **Peta Peringatan Dini**. Tombol **Ambil berita publik sekarang** meminta data dari `http://127.0.0.1:8787/news`; tampilan juga mencoba memperbarui setiap 5 menit. Pastikan komputer terhubung ke internet. Jika Collector tidak berjalan, peta menampilkan status gagal dan tidak membuat data contoh.
+
+**Batas interpretasi:** jumlah pada peta adalah jumlah artikel RSS unik yang berhasil diambil, bukan volume unggahan media sosial, jumlah pembaca, atau ukuran viralitas. Artikel hanya dipetakan bila pengenal wilayah ditemukan pada judul/ringkasan; lokasi yang tidak disebutkan dibiarkan tanpa wilayah. Skor adalah indikator heuristik dari teks untuk mengurutkan kebutuhan verifikasi, bukan penetapan kebenaran berita, ancaman, niat, atau atribusi pelaku. Buka tautan sumber dan lakukan verifikasi manusia sebelum tindakan. RSS juga tidak menjamin cakupan seluruh berita atau pengambilan real-time; interval polling bawaan 5 menit.
+
+Pengumpulan RSS menyimpan metadata artikel dan ringkasan singkat untuk atribusi. Konten penuh tetap berada di situs penerbit. Sumber feed dapat diubah melalui variabel lingkungan `RSS_URLS` (pisahkan URL dengan koma; gunakan `RSS_URLS=off` untuk menonaktifkan).
+
+
+## Riset AI dengan sumber web publik
+
+Collector menyediakan `POST /api/ai/research`. Provider dapat dipilih `gemini`, `openai`, atau `both`. Gemini menggunakan Google Search Grounding; OpenAI menggunakan Responses API dengan tool `web_search`. Kunci API hanya dibaca dari environment server dan tidak boleh ditaruh di HTML/JavaScript browser.
+
+1. Salin `.env.example` menjadi `.env`.
+2. Isi `GEMINI_API_KEY` dan/atau `OPENAI_API_KEY`.
+3. Atur `GEMINI_MODEL` / `OPENAI_MODEL` sesuai model yang tersedia pada akun API.
+4. Jalankan `npm run collector` (Node.js 22+ mendukung `--env-file-if-exists`).
+5. Di Peta Peringatan Dini, gunakan panel **Riset AI berbasis sumber publik**.
+
+Mode `both` menjalankan kedua provider secara terpisah; ini bukan voting kebenaran. Jika hasil berbeda, tampilkan perbedaan dan periksa sumber primer. Jawaban AI tidak otomatis masuk skor peta. Penambahan ke peta tetap memerlukan sumber, wilayah yang eksplisit, dan peninjauan. Penggunaan API dapat menimbulkan biaya sesuai tarif provider. Jangan memasukkan data pribadi/sensitif.
+
+
+## Deteksi Buzzer Otomatis (v2.1.1)
+
+Modul Deteksi Buzzer kini dapat menerima batch unggahan publik Bluesky secara otomatis dari Collector. Collector mencari unggahan publik Bluesky melalui `api.bsky.app` dengan fallback ke `public.api.bsky.app` jika endpoint utama gagal. Data profil publik dipakai bila tersedia; jika statistik profil tidak tersedia, unggahan tetap dianalisis berdasarkan teks/waktu tanpa mengarang sinyal profil. Analisis otomatis memakai mesin dan laporan yang sama dengan mode CSV manual. Mode tempel CSV manual tetap tersedia.
+
+- Buka dashboard melalui `http://127.0.0.1:8787/` dan biarkan Collector aktif.
+- Tab **Deteksi Buzzer** menghubungkan SSE secara otomatis, mengambil buffer `/buzzer/data`, memperbarui analisis saat batch baru diterima, dan menganalisis ulang arsip lokal setelah pencarian selesai meski tidak ada unggahan baru.
+- Tombol **Ambil & analisis sekarang** meminta pencarian segera; **Hentikan/Aktifkan otomatis** mengendalikan jadwal bot.
+- Referensi sumber, cakupan, keterbatasan, privasi, dan interpretasi: `REFERENSI_DETEKSI_BUZZER.md`.
+
+Catatan: versi ini mengotomatisasi sumber Bluesky saja. Ia bukan pemantauan semua platform dan tidak membuktikan akun sebagai buzzer. Kesamaan teks/waktu adalah indikator korelasi; verifikasi manusia tetap wajib.
+
+## Overlay Kodam (upgrade 12 November 2026)
+- Peta Dunia Live kini menampilkan 27 penanda identitas Kodam; Peta Peringatan Dini tetap mempertahankan 38 provinsi sebagai unit data dan memakai badge Kodam sesuai pemetaan referensi.
+- Badge pada paket ini adalah identifikasi grafis netral berinisial, **bukan lambang resmi Kodam/TNI AD**. Ganti dengan aset lambang resmi yang telah diizinkan sebelum dipakai sebagai paparan resmi.
+- Rincian, sumber, dan batas pemetaan ada di `UPGRADE_KODAM_2026.md`.
+
+
+## Pemantauan berbasis Kodam
+
+Lokasi hasil analisis ditampilkan pada tingkat 27 Kodam. Kode provinsi tetap dipertahankan sebagai metadata sumber untuk ketertelusuran, kemudian dipetakan melalui `data/kodam.js` dan `js/00d-kodam-scope.js`. Nama kota hanya dipakai sebagai alias pencarian lokasi, bukan sebagai label utama dashboard.

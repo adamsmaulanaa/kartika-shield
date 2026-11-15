@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: kartika-shield
+    runtime: node
+    plan: free
+    buildCommand: echo "No npm dependencies required"
+    startCommand: npm run collector
+    healthCheckPath: /health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: BOT_AUTO
+        value: "1"
+      - key: BOT_INTERVAL_MIN
+        value: "10"
+      - key: BOT_LOOKBACK_HOURS
+        value: "24"
+      - key: BOT_LIMIT
+        value: "30"
+      - key: MIN_RISK
+        value: "45"
